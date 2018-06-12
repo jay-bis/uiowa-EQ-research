@@ -10,16 +10,24 @@ finally create new, shape-matched post event DEM.
 from osgeo import gdal
 import numpy as np
 import time
+from ICP import icp
 
 
-preEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WV01_13OCT01n14JAN24_10200100262F9000_1020010029seg1_2m_dem_1.tif"
-postEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WWV01_12MAY04n13APR01_102001001CAFAC00_1020010020seg1_2m_dem_1.tif"
+#preEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WV01_13OCT01n14JAN24_10200100262F9000_1020010029seg1_2m_dem_1.tif"
+#postEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WWV01_12MAY04n13APR01_102001001CAFAC00_1020010020seg1_2m_dem_1.tif"
+
+preEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WV01_small.tif"
+postEQ = "C:/Users/Jack Biscupski/Desktop/Research Materials/Code/WWV01_small.tif"
 
 # initializing resampling variables
 method = "Point2Plane"
 slidingWindow = 10
 windowSize = 2
 postEQclamp = 30
+
+# normally 500, set to 5 for testing
+maxIter = 5
+pNorm = 2
 
 
 # loading and preprocessing data
@@ -75,7 +83,7 @@ print("Timing resampling...")
 start = time.time()
 # for [:,I_pre] and [:,J_pre], etc - we are going through each matrix prefixed (for example, preM/postM or temps)
 # and picking out the values by starting at the beginning of I_ and J_ and saying: if True, keep this 3x1 element, if not, discard
-for i in range(len(x_Range)-1):
+for i in range(len(x_Range)):
     # initiate empty list for each entry
     gridPre.append([])
     gridPost.append([])
@@ -86,7 +94,7 @@ for i in range(len(x_Range)-1):
     
     tempData_pre = preM[:,I_pre]
     tempData_post = postM[:,I_post]
-    for j in range(len(y_Range)-1):
+    for j in range(len(y_Range)):
         gridPre[i].append([])
         gridPost[i].append([])
         gridPreAligned[i].append([])
@@ -101,6 +109,38 @@ end = time.time()
 print("Resampling elapsed time: {} seconds".format(end-start))
 
 # create multiple zero-instantiated arrays with same shape as gridPreAligned
-Tx, TTx, Ty, TTy, Tz, TTz = (np.zeros((len(x_Range)-1, len(y_Range)-1)) for i in range(6)) # what are these T arrays for?
-counter = 1
+# plot Tx and Ty (base grid) for final output, showing TTx, TTy, TTz displacements
+Tx, TTx, Ty, TTy, Tz, TTz = (np.zeros((len(x_Range)-1, len(y_Range)-1)) for i in range(6)) 
+counter = -1
 Tr = np.zeros((9, (len(x_Range)-1)*(len(y_Range)-1)))
+for i in range(len(x_Range)-1):
+    for j in range(len(y_Range)-1):
+        data = gridPre[i][j]
+        model = gridPost[i][j]
+        # take advantage of empty containers evaluating to false
+        if not data.size or not model.size:
+            counter += 1
+            gridPreAligned[i][j] = data
+            continue
+        TR, TT, dataOut = icp(data, model, pNorm, maxIter)
+        delta = np.mean(dataOut-data, axis=1)
+        TTx[i,j] = delta[0]
+        TTy[i,j] = delta[1]
+        TTz[i,j] = delta[2]
+        Tx[i,j] = TT[0]
+        Ty[i,j] = TT[1]
+        Tz[i,j] = TT[2]
+        Tr[:,counter] = TR.flatten()
+        gridPreAligned[i][j] = dataOut
+        counter += 1
+
+x = np.zeros((len(y_Range)-1, len(x_Range)-1))
+y = np.zeros((len(y_Range)-1, len(x_Range)-1))
+for i in range(len(x_Range)-1):
+    x[:,i] = (2*x_Range[i] + windowSize)/2
+for i in range(len(y_Range)-1):
+    y[i] = (2*y_Range[i] + windowSize)/2
+
+x = np.transpose(x)
+y = np.transpose(y)
+n = (TTx**2 + TTy**2)**0.5
