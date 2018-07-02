@@ -10,4 +10,4 @@ If we were to simply difference pre/post event DEMS, our resulting DEM would not
 # The Solution
 This code will be utilizing an iterative closest point (ICP) algorithm, along with shape matching techniques. Shapes between pre/post event DEMs will be matched according to their point cloud, and subsequently lined up.
 
-# WORK IN PROGRESS
+
