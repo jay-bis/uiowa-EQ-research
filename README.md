@@ -1,5 +1,5 @@
 # uiowa-EQ-research Status
-Building code to analyze differences in elevation post-earthquake - WORK IN PROGRESS
+Building code to analyze differences in elevation post-earthquake
 
 # Introduction
 This software will process pre/post earthquake DEMs, and build an output suitable for differencing the changes in elevation. Calculating elevation differences between DEMs is quite an easy task, so why am I building code to do this?
